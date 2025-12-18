@@ -28,12 +28,18 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Unauthorized - clear token and redirect to login
+    // Only redirect on 401 if user is already logged in (has token)
+    // Don't redirect on login/register failures
+    const isLoginOrRegister = error.config?.url?.includes('/auth/login') || 
+                              error.config?.url?.includes('/auth/register');
+    
+    if (error.response?.status === 401 && !isLoginOrRegister) {
+      // User's token expired or is invalid - redirect to login
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+    
     return Promise.reject(error);
   }
 );
