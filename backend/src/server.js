@@ -17,6 +17,7 @@ testConnection();
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const jobRoutes = require('./routes/jobRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 
 // Routes
 app.get('/', (req, res) => {
@@ -40,6 +41,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
