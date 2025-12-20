@@ -18,6 +18,7 @@ testConnection();
 const authRoutes = require('./routes/authRoutes');
 const jobRoutes = require('./routes/jobRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const pdfRoutes = require('./routes/pdfRoutes');
 
 // Routes
 app.get('/', (req, res) => {
@@ -42,6 +43,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/pdf', pdfRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
