@@ -11,6 +11,7 @@ const Profile = () => {
     resumeText: '',
   });
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
@@ -29,6 +30,65 @@ const Profile = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
     if (error) setError('');
     if (success) setSuccess('');
+  };
+
+  const handlePdfUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (file.type !== 'application/pdf') {
+      setError('Please upload a PDF file');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size must be less than 5MB');
+      return;
+    }
+
+    setUploading(true);
+    setError('');
+
+    try {
+      // Create form data
+      const uploadFormData = new FormData();
+      uploadFormData.append('pdf', file);
+
+      // Upload and extract
+      const response = await fetch('http://localhost:8080/api/pdf/extract', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: uploadFormData
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to extract text from PDF');
+      }
+
+      // Update form with extracted text
+      setFormData(prev => ({
+        ...prev,
+        resumeText: data.text
+      }));
+
+      setSuccess(`✅ Extracted ${data.pages} page(s) from ${data.info.fileName}`);
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(''), 3000);
+
+    } catch (err) {
+      setError(err.message || 'Failed to upload PDF. Please try again.');
+    } finally {
+      setUploading(false);
+      // Clear file input
+      e.target.value = '';
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -133,7 +193,7 @@ const Profile = () => {
                   <div className="text-sm text-gray-600 mb-2">
                     <span className="font-medium">Member since:</span>
                     <br />
-                    {new Date(user?.createdAt || user?.created_at).toLocaleDateString('en-US', { 
+                    {new Date(user?.created_at).toLocaleDateString('en-US', { 
                       month: 'long', 
                       year: 'numeric' 
                     })}
@@ -209,16 +269,45 @@ const Profile = () => {
 
                 {/* Resume Text */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Resume / CV Text
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-semibold text-gray-700">
+                      Resume / CV Text
+                    </label>
+                    <label className="cursor-pointer inline-flex items-center px-3 py-1.5 border border-primary-600 rounded-lg text-xs font-medium text-primary-600 bg-white hover:bg-primary-50 transition-colors">
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      Upload PDF
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={handlePdfUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {uploading && (
+                    <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-center">
+                        <svg className="animate-spin h-5 w-5 text-blue-600 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span className="text-sm text-blue-700 font-medium">
+                          Extracting text from PDF...
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <textarea
                     name="resumeText"
                     value={formData.resumeText}
                     onChange={handleChange}
                     rows="12"
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all resize-none font-mono text-sm"
-                    placeholder="Paste your resume content here...
+                    placeholder="Paste your resume content here or upload a PDF...
 
 Example:
 John Doe - Full Stack Developer
@@ -239,7 +328,7 @@ EDUCATION:
                   ></textarea>
                   <div className="mt-2 flex items-center justify-between">
                     <p className="text-xs text-gray-500">
-                      💡 Keep your resume updated for accurate AI matching
+                      💡 Upload PDF or paste text manually
                     </p>
                     <p className="text-xs text-gray-500">
                       {getCharCount()} characters • {getWordCount()} words
