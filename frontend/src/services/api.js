@@ -11,8 +11,9 @@ const api = axios.create({
   timeout: 60000, // 60 second timeout for cold starts
 });
 
-// Track pending requests
+// Track pending requests and timing
 let pendingRequests = 0;
+let loadingTimeout = null;
 
 // Request interceptor to add token and handle loading
 api.interceptors.request.use(
@@ -25,18 +26,24 @@ api.interceptors.request.use(
     // Increment pending requests
     pendingRequests++;
     
-    // Show loading for first request (likely cold start)
+    // Only show loading if request takes more than 2 seconds (cold start indicator)
     if (pendingRequests === 1) {
-      const event = new CustomEvent('api-loading', { 
-        detail: { loading: true, message: 'Connecting to server...' } 
-      });
-      window.dispatchEvent(event);
+      loadingTimeout = setTimeout(() => {
+        const event = new CustomEvent('api-loading', { 
+          detail: { loading: true, message: 'Waking up server...' } 
+        });
+        window.dispatchEvent(event);
+      }, 3000); // Wait 3 seconds before showing spinner
     }
     
     return config;
   },
   (error) => {
     pendingRequests--;
+    if (loadingTimeout) {
+      clearTimeout(loadingTimeout);
+      loadingTimeout = null;
+    }
     return Promise.reject(error);
   }
 );
@@ -46,6 +53,12 @@ api.interceptors.response.use(
   (response) => {
     // Decrement pending requests
     pendingRequests--;
+    
+    // Clear timeout if request completes quickly
+    if (loadingTimeout) {
+      clearTimeout(loadingTimeout);
+      loadingTimeout = null;
+    }
     
     // Hide loading when all requests complete
     if (pendingRequests === 0) {
@@ -60,6 +73,12 @@ api.interceptors.response.use(
   (error) => {
     // Decrement pending requests
     pendingRequests--;
+    
+    // Clear timeout
+    if (loadingTimeout) {
+      clearTimeout(loadingTimeout);
+      loadingTimeout = null;
+    }
     
     // Hide loading
     if (pendingRequests === 0) {
