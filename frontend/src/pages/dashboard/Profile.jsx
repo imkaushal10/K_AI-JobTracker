@@ -54,7 +54,8 @@ const Profile = () => {
       const uploadFormData = new FormData();
       uploadFormData.append('pdf', file);
 
-      const response = await fetch('http://localhost:8080/api/pdf/extract', {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${API_BASE_URL}/api/pdf/extract`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
