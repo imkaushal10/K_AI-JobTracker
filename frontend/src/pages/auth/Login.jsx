@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { showSuccess } from '../../utils/toast';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -32,6 +33,7 @@ const Login = () => {
 
     if (result.success) {
       navigate('/dashboard');
+      showSuccess('Welcome back! You have successfully logged in.');
     } else {
       setError(result.error);
     }
