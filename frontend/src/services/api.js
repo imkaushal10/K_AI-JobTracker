@@ -8,33 +8,72 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 60000, // 60 second timeout for cold starts
 });
 
-// Request interceptor to add token
+// Track pending requests
+let pendingRequests = 0;
+
+// Request interceptor to add token and handle loading
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Increment pending requests
+    pendingRequests++;
+    
+    // Show loading for first request (likely cold start)
+    if (pendingRequests === 1) {
+      const event = new CustomEvent('api-loading', { 
+        detail: { loading: true, message: 'Connecting to server...' } 
+      });
+      window.dispatchEvent(event);
+    }
+    
     return config;
   },
   (error) => {
+    pendingRequests--;
     return Promise.reject(error);
   }
 );
 
-// Response interceptor for error handling
+// Response interceptor for error handling and loading
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Decrement pending requests
+    pendingRequests--;
+    
+    // Hide loading when all requests complete
+    if (pendingRequests === 0) {
+      const event = new CustomEvent('api-loading', { 
+        detail: { loading: false } 
+      });
+      window.dispatchEvent(event);
+    }
+    
+    return response;
+  },
   (error) => {
-    // Only redirect on 401 if user is already logged in (has token)
-    // Don't redirect on login/register failures
+    // Decrement pending requests
+    pendingRequests--;
+    
+    // Hide loading
+    if (pendingRequests === 0) {
+      const event = new CustomEvent('api-loading', { 
+        detail: { loading: false } 
+      });
+      window.dispatchEvent(event);
+    }
+    
+    // Only redirect on 401 if it's NOT a login/register request
     const isLoginOrRegister = error.config?.url?.includes('/auth/login') || 
                               error.config?.url?.includes('/auth/register');
     
     if (error.response?.status === 401 && !isLoginOrRegister) {
-      // User's token expired or is invalid - redirect to login
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
