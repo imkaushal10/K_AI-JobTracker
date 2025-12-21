@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { authAPI } from '../../services/api';
 import Navbar from '../../components/layout/Navbar';
+import { showSuccess, showError, showLoading, dismissToast } from '../../utils/toast';
 
 const Profile = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -12,8 +15,6 @@ const Profile = () => {
   });
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [success, setSuccess] = useState('');
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -28,8 +29,6 @@ const Profile = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (error) setError('');
-    if (success) setSuccess('');
   };
 
   const handlePdfUpload = async (e) => {
@@ -38,25 +37,23 @@ const Profile = () => {
 
     // Validate file type
     if (file.type !== 'application/pdf') {
-      setError('Please upload a PDF file');
+      showError('Please upload a PDF file');
       return;
     }
 
     // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
-      setError('File size must be less than 5MB');
+      showError('File size must be less than 5MB');
       return;
     }
 
+    const toastId = showLoading('Extracting text from PDF...');
     setUploading(true);
-    setError('');
 
     try {
-      // Create form data
       const uploadFormData = new FormData();
       uploadFormData.append('pdf', file);
 
-      // Upload and extract
       const response = await fetch('http://localhost:8080/api/pdf/extract', {
         method: 'POST',
         headers: {
@@ -71,37 +68,38 @@ const Profile = () => {
         throw new Error(data.error || 'Failed to extract text from PDF');
       }
 
-      // Update form with extracted text
+      dismissToast(toastId);
+      
       setFormData(prev => ({
         ...prev,
         resumeText: data.text
       }));
 
-      setSuccess(`✅ Extracted ${data.pages} page(s) from ${data.info.fileName}`);
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(''), 3000);
+      showSuccess(`✅ Successfully extracted text from ${data.info.fileName}!`);
 
     } catch (err) {
-      setError(err.message || 'Failed to upload PDF. Please try again.');
+      dismissToast(toastId);
+      showError(err.message || 'Failed to upload PDF. Please try again.');
     } finally {
       setUploading(false);
-      // Clear file input
       e.target.value = '';
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!formData.resumeText.trim()) {
+      showError('Please add your resume text before saving');
+      return;
+    }
+
+    const toastId = showLoading('Saving your profile...');
     setLoading(true);
-    setError('');
-    setSuccess('');
 
     try {
-      // Update resume text
       await authAPI.updateResume(formData.resumeText);
       
-      // Update user info in localStorage
       const updatedUser = {
         ...user,
         fullName: formData.fullName,
@@ -111,14 +109,15 @@ const Profile = () => {
       };
       localStorage.setItem('user', JSON.stringify(updatedUser));
       
-      setSuccess('Profile updated successfully! 🎉');
+      dismissToast(toastId);
+      showSuccess('Profile updated successfully! 🎉');
       
-      // Refresh page after 1 second to update context
       setTimeout(() => {
         window.location.reload();
-      }, 1000);
+      }, 1500);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update profile');
+      dismissToast(toastId);
+      showError(err.response?.data?.error || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -137,44 +136,24 @@ const Profile = () => {
       <Navbar />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900">Profile Settings</h2>
-          <p className="mt-1 text-gray-600">
-            Manage your account information and resume
-          </p>
+        {/* Header with Back Button */}
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-900">Profile Settings</h2>
+            <p className="mt-1 text-gray-600">
+              Manage your account information and resume
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Dashboard
+          </button>
         </div>
-
-        {/* Success/Error Messages */}
-        {success && (
-          <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-md animate-shake">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-green-700 font-medium">{success}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md animate-shake">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-red-700 font-medium">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - User Info */}
@@ -193,7 +172,7 @@ const Profile = () => {
                   <div className="text-sm text-gray-600 mb-2">
                     <span className="font-medium">Member since:</span>
                     <br />
-                    {new Date(user?.created_at).toLocaleDateString('en-US', { 
+                    {new Date(user?.createdAt || user?.created_at).toLocaleDateString('en-US', { 
                       month: 'long', 
                       year: 'numeric' 
                     })}
@@ -224,6 +203,22 @@ const Profile = () => {
                 </div>
               </div>
             </div>
+
+            {/* Quick Actions */}
+            <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h4 className="text-sm font-bold text-gray-900 mb-4">Quick Actions</h4>
+              <div className="space-y-2">
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors flex items-center"
+                >
+                  <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                  Go to Dashboard
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Right Column - Form */}
@@ -240,7 +235,7 @@ const Profile = () => {
                     name="fullName"
                     value={formData.fullName}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-gray-50"
                     placeholder="John Doe"
                     disabled
                   />
@@ -259,7 +254,7 @@ const Profile = () => {
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-gray-50"
                     disabled
                   />
                   <p className="mt-1 text-xs text-gray-500">
@@ -287,20 +282,6 @@ const Profile = () => {
                     </label>
                   </div>
 
-                  {uploading && (
-                    <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <div className="flex items-center">
-                        <svg className="animate-spin h-5 w-5 text-blue-600 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span className="text-sm text-blue-700 font-medium">
-                          Extracting text from PDF...
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
                   <textarea
                     name="resumeText"
                     value={formData.resumeText}
@@ -315,7 +296,6 @@ John Doe - Full Stack Developer
 EXPERIENCE:
 - 3 years building web applications with React, Node.js, and PostgreSQL
 - Developed RESTful APIs serving 10k+ daily users
-- Led team of 3 developers on e-commerce platform
 
 SKILLS:
 - Frontend: React, TypeScript, Tailwind CSS
@@ -350,24 +330,21 @@ EDUCATION:
                   </ul>
                 </div>
 
-                {/* Save Button */}
-                <div className="pt-6 border-t border-gray-200">
+                {/* Action Buttons */}
+                <div className="pt-6 border-t border-gray-200 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/dashboard')}
+                    className="px-6 py-3 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all"
+                  >
+                    Cancel
+                  </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full sm:w-auto px-8 py-3 border border-transparent rounded-xl text-base font-medium text-white bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                    className="px-8 py-3 border border-transparent rounded-xl text-base font-medium text-white bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                   >
-                    {loading ? (
-                      <span className="flex items-center justify-center">
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Saving...
-                      </span>
-                    ) : (
-                      'Save Changes'
-                    )}
+                    {loading ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </div>

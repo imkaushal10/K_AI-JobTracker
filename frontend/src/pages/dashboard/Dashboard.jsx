@@ -4,9 +4,13 @@ import StatsCards from '../../components/jobs/StatsCards';
 import JobCard from '../../components/jobs/JobCard';
 import JobForm from '../../components/jobs/JobForm';
 import MatchResultModal from '../../components/jobs/MatchResultModal';
+import ResumePrompt from '../../components/onboarding/ResumePrompt';
 import { jobsAPI, aiAPI } from '../../services/api';
+import { showSuccess, showError, showLoading, dismissToast } from '../../utils/toast';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Dashboard = () => {
+  const { user } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -24,6 +28,9 @@ const Dashboard = () => {
   
   // Match results cache
   const [matchResults, setMatchResults] = useState({});
+  
+  // Resume prompt
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
 
   useEffect(() => {
     fetchJobs();
@@ -35,6 +42,17 @@ const Dashboard = () => {
       fetchMatchResults();
     }
   }, [jobs]);
+
+ // Check if user needs resume prompt
+useEffect(() => {
+  const hasResume = user?.resumeText || user?.resume_text;
+  const hasSeenPrompt = localStorage.getItem('hasSeenResumePrompt');
+  
+  // Show prompt for new users without resume (regardless of job count)
+  if (!hasResume && !hasSeenPrompt && !loading) {
+    setTimeout(() => setShowResumePrompt(true), 1000);
+  }
+}, [user, loading]);
 
   const fetchJobs = async () => {
     try {
@@ -50,16 +68,14 @@ const Dashboard = () => {
 
   const fetchMatchResults = async () => {
     try {
-      // Fetch match results for all jobs
       const matchPromises = jobs.map(job => 
         aiAPI.getMatch(job.id)
           .then(response => ({ jobId: job.id, data: response.data.match }))
-          .catch(() => null) // If no match exists, return null
+          .catch(() => null)
       );
       
       const results = await Promise.all(matchPromises);
       
-      // Build cache object
       const cache = {};
       results.forEach(result => {
         if (result && result.data) {
@@ -89,6 +105,7 @@ const Dashboard = () => {
       await fetchJobs();
       setRefreshKey(prev => prev + 1);
       setIsFormOpen(false);
+      showSuccess('Job application added successfully! 🎉');
     } catch (error) {
       throw error;
     }
@@ -111,23 +128,29 @@ const Dashboard = () => {
       setRefreshKey(prev => prev + 1);
       setIsFormOpen(false);
       setEditingJob(null);
+      showSuccess('Job application updated successfully! ✅');
     } catch (error) {
       throw error;
     }
   };
 
   const handleDelete = async (jobId) => {
+    if (!window.confirm('Are you sure you want to delete this application?')) return;
+    
+    const toastId = showLoading('Deleting application...');
     try {
       await jobsAPI.delete(jobId);
-      // Remove from cache if exists
       const newCache = { ...matchResults };
       delete newCache[jobId];
       setMatchResults(newCache);
       await fetchJobs();
       setRefreshKey(prev => prev + 1);
+      dismissToast(toastId);
+      showSuccess('Application deleted successfully!');
     } catch (error) {
       console.error('Failed to delete job:', error);
-      alert('Failed to delete job application');
+      dismissToast(toastId);
+      showError('Failed to delete job application');
     }
   };
 
@@ -135,13 +158,11 @@ const Dashboard = () => {
     setSelectedJob(job);
     setIsMatchModalOpen(true);
     
-    // Check if we already have results cached
     if (matchResults[job.id]) {
       setMatchResult(matchResults[job.id]);
       return;
     }
     
-    // Otherwise, analyze
     setIsAnalyzing(true);
     setMatchResult(null);
     
@@ -149,11 +170,11 @@ const Dashboard = () => {
       const response = await aiAPI.analyze(job.id);
       const result = response.data.match;
       setMatchResult(result);
-      // Cache the result
       setMatchResults(prev => ({ ...prev, [job.id]: result }));
+      showSuccess('AI analysis completed! 🎯');
     } catch (error) {
       console.error('Failed to analyze:', error);
-      alert(error.response?.data?.error || 'Failed to analyze match. Please try again.');
+      showError(error.response?.data?.error || 'Failed to analyze match');
       setIsMatchModalOpen(false);
     } finally {
       setIsAnalyzing(false);
@@ -168,11 +189,11 @@ const Dashboard = () => {
       const response = await aiAPI.reanalyze(selectedJob.id);
       const result = response.data.match;
       setMatchResult(result);
-      // Update cache
       setMatchResults(prev => ({ ...prev, [selectedJob.id]: result }));
+      showSuccess('Re-analysis completed! 🔄');
     } catch (error) {
       console.error('Failed to re-analyze:', error);
-      alert('Failed to re-analyze match. Please try again.');
+      showError('Failed to re-analyze match');
     } finally {
       setIsAnalyzing(false);
     }
@@ -186,6 +207,11 @@ const Dashboard = () => {
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setEditingJob(null);
+  };
+
+  const handleDismissPrompt = () => {
+    setShowResumePrompt(false);
+    localStorage.setItem('hasSeenResumePrompt', 'true');
   };
 
   const filters = [
@@ -322,6 +348,11 @@ const Dashboard = () => {
         onReanalyze={handleReanalyze}
         isAnalyzing={isAnalyzing}
       />
+
+      {/* Resume Prompt Modal */}
+      {showResumePrompt && (
+        <ResumePrompt onDismiss={handleDismissPrompt} />
+      )}
     </div>
   );
 };
