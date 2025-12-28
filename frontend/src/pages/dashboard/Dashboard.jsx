@@ -8,6 +8,7 @@ import ResumePrompt from '../../components/onboarding/ResumePrompt';
 import { jobsAPI, aiAPI } from '../../services/api';
 import { showSuccess, showError, showLoading, dismissToast } from '../../utils/toast';
 import { useAuth } from '../../contexts/AuthContext';
+import ResumeBanner from '../../components/common/ResumeBanner';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -155,31 +156,41 @@ useEffect(() => {
   };
 
   const handleAnalyze = async (job) => {
+  const hasResume = user?.resumeText || user?.resume_text;
+  
+  // NO RESUME - Show error modal
+  if (!hasResume) {
     setSelectedJob(job);
+    setMatchResult({ error: true });
     setIsMatchModalOpen(true);
-    
-    if (matchResults[job.id]) {
-      setMatchResult(matchResults[job.id]);
-      return;
-    }
-    
-    setIsAnalyzing(true);
-    setMatchResult(null);
-    
-    try {
-      const response = await aiAPI.analyze(job.id);
-      const result = response.data.match;
-      setMatchResult(result);
-      setMatchResults(prev => ({ ...prev, [job.id]: result }));
-      showSuccess('AI analysis completed! 🎯');
-    } catch (error) {
-      console.error('Failed to analyze:', error);
-      showError(error.response?.data?.error || 'Failed to analyze match');
-      setIsMatchModalOpen(false);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+    showError('Please add your resume to use AI matching');
+    return;
+  }
+  
+  // HAS RESUME - Proceed with analysis
+  setSelectedJob(job);
+  setIsMatchModalOpen(true);
+  
+  if (matchResults[job.id]) {
+    setMatchResult(matchResults[job.id]);
+    return;
+  }
+  
+  setIsAnalyzing(true);
+  setMatchResult(null);
+  
+  try {
+    const response = await aiAPI.analyze(job.id);
+    setMatchResult(response.data.match);
+    setMatchResults(prev => ({ ...prev, [job.id]: response.data.match }));
+    showSuccess('AI analysis completed! 🎯');
+  } catch (error) {
+    showError(error.response?.data?.error || 'Failed to analyze match');
+    setIsMatchModalOpen(false);
+  } finally {
+    setIsAnalyzing(false);
+  }
+};
 
   const handleReanalyze = async () => {
     if (!selectedJob) return;
@@ -226,6 +237,7 @@ useEffect(() => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Navbar />
+      <ResumeBanner />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Header */}
