@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const MatchResultModal = ({ isOpen, onClose, job, matchResult, onReanalyze, isAnalyzing }) => {
+  const navigate = useNavigate();
+  
   if (!isOpen || !job) return null;
 
   const getScoreColor = (score) => {
@@ -13,6 +15,11 @@ const MatchResultModal = ({ isOpen, onClose, job, matchResult, onReanalyze, isAn
     if (score >= 80) return 'Excellent Match! 🎯';
     if (score >= 60) return 'Good Match 👍';
     return 'Needs Improvement 📈';
+  };
+
+  const handleGoToProfile = () => {
+    onClose();
+    navigate('/profile');
   };
 
   return (
@@ -36,7 +43,7 @@ const MatchResultModal = ({ isOpen, onClose, job, matchResult, onReanalyze, isAn
                   </div>
                   <div>
                     <h3 className="text-2xl font-bold text-white">
-                      AI Match Analysis
+                      {matchResult?.error ? 'Resume Required' : 'AI Match Analysis'}
                     </h3>
                     <p className="text-primary-100 text-sm">
                       {job.company_name} • {job.job_title}
@@ -57,7 +64,32 @@ const MatchResultModal = ({ isOpen, onClose, job, matchResult, onReanalyze, isAn
 
           {/* Content */}
           <div className="px-6 py-6">
-            {isAnalyzing ? (
+            {/* ERROR STATE - No Resume */}
+            {matchResult?.error ? (
+              <div className="text-center py-12">
+                <div className="mx-auto w-24 h-24 bg-primary-100 rounded-full flex items-center justify-center mb-6">
+                  <svg className="w-12 h-12 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h4 className="text-2xl font-bold text-gray-900 mb-3">
+                  Resume Required
+                </h4>
+                <p className="text-gray-600 mb-8 max-w-md mx-auto leading-relaxed">
+                  Add your resume to unlock AI-powered matching. Get instant scores, identify your strengths, and receive personalized suggestions for every job!
+                </p>
+                <button
+                  onClick={handleGoToProfile}
+                  className="inline-flex items-center px-6 py-3 border border-transparent rounded-xl text-base font-medium text-white bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all shadow-lg"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Add Resume Now
+                </button>
+              </div>
+            ) : isAnalyzing ? (
+              // LOADING STATE
               <div className="text-center py-12">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-4">
                   <svg className="animate-spin h-8 w-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -73,6 +105,7 @@ const MatchResultModal = ({ isOpen, onClose, job, matchResult, onReanalyze, isAn
                 </p>
               </div>
             ) : matchResult ? (
+              // MATCH RESULT
               <>
                 {/* Match Score */}
                 <div className="text-center mb-8 pb-8 border-b border-gray-200">
@@ -150,6 +183,7 @@ const MatchResultModal = ({ isOpen, onClose, job, matchResult, onReanalyze, isAn
                 </div>
               </>
             ) : (
+              // NO ANALYSIS STATE
               <div className="text-center py-12">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,7 +208,7 @@ const MatchResultModal = ({ isOpen, onClose, job, matchResult, onReanalyze, isAn
             >
               Close
             </button>
-            {matchResult && !isAnalyzing && (
+            {matchResult && !isAnalyzing && !matchResult.error && (
               <button
                 onClick={onReanalyze}
                 className="px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all shadow-md"
