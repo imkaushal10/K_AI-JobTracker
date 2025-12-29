@@ -25,11 +25,11 @@
 
 ![AI Analysis](screenshots/analysis-withresume.png)
 
-### User Profile - Without Resume
-
-![AI Analysis](screenshots/profile-withresume.png)
-
 ### User Profile - With Resume
+
+![AI Analysis](screenshots/profile-withoutresume.png)
+
+### User Profile - Without Resume
 
 ![AI Analysis](screenshots/profile-withresume.png)
 
