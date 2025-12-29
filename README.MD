@@ -9,7 +9,7 @@
 
 [**🚀 Live Demo**](https://k-ai-job-tracker.vercel.app) | [**💼 Portfolio**](https://kaushalbhattarai.vercel.app/)
 
---- 
+---
 
 ## 📸 Screenshots
 
@@ -27,11 +27,11 @@
 
 ### User Profile - Without Resume
 
-![AI Analysis](screenshots/analysis-withresume.png)
+![AI Analysis](screenshots/profile-withresume.png)
 
 ### User Profile - With Resume
 
-![AI Analysis](screenshots/analysis-withresume.png)
+![AI Analysis](screenshots/profile-withresume.png)
 
 ### Mobile Responsive Design
 
