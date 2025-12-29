@@ -129,7 +129,7 @@ useEffect(() => {
       setRefreshKey(prev => prev + 1);
       setIsFormOpen(false);
       setEditingJob(null);
-      showSuccess('Job application updated successfully! ✅');
+      showSuccess('Job application updated successfully!');
     } catch (error) {
       throw error;
     }
@@ -201,7 +201,7 @@ useEffect(() => {
       const result = response.data.match;
       setMatchResult(result);
       setMatchResults(prev => ({ ...prev, [selectedJob.id]: result }));
-      showSuccess('Re-analysis completed! 🔄');
+      showSuccess('Re-analysis completed!');
     } catch (error) {
       console.error('Failed to re-analyze:', error);
       showError('Failed to re-analyze match');
